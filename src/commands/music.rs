@@ -67,6 +67,8 @@ pub async fn play(
 
     let mut handler = handle_mutex.lock().await;
 
+    let _ = ctx.defer().await;
+
     let source = build_lazy_source(ctx, song_url)
         .await
         .expect("Failed to build source");
@@ -186,7 +188,10 @@ async fn build_lazy_source(
             "Err starting source: {:?}",
             lazy_source.as_ref().unwrap_err()
         );
-        utils::check_msg(ctx.send(|m| m.content("Error sourcing ffmpeg")).await);
+        utils::check_msg(
+            ctx.send(|m| m.content("An error occurred while constructing the source"))
+                .await,
+        );
     }
 
     lazy_source.map(|source| source.into())
@@ -197,8 +202,6 @@ async fn build_embeds_on_play(
     queue: &TrackQueue,
     metadata: &songbird::input::Metadata,
 ) {
-    let _ = ctx.defer().await;
-
     let position_in_queue: u64 = (queue.len() + 1) as u64;
     let elapsed = match queue.current() {
         Some(track) => track.get_info().await.unwrap().play_time.as_secs(),

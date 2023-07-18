@@ -22,20 +22,20 @@ pub async fn join(ctx: Context<'_>) -> Result<(), Error> {
         .expect("Songbird was not registered with the client builder")
         .clone();
 
-    let (handle_lock, _) = manager.join(guild_id, connect_to).await;
+    let (_, _) = manager.join(guild_id, connect_to).await;
 
-    let mut handler = handle_lock.lock().await;
-
-    let http = ctx.serenity_context().http.clone();
-
-    handler.add_global_event(
-        Event::Track(TrackEvent::End),
-        utils::TrackEndNotifier {
-            http,
-            channel_id: ctx.channel_id(),
-            handle_lock: handle_lock.clone(),
-        },
-    );
+    // let mut handler = handle_lock.lock().await;
+    //
+    // let http = ctx.serenity_context().http.clone();
+    //
+    // handler.add_global_event(
+    //     Event::Track(TrackEvent::End),
+    //     utils::TrackEndNotifier {
+    //         http,
+    //         channel_id: ctx.channel_id(),
+    //         handle_lock: handle_lock.clone(),
+    //     },
+    // );
 
     utils::check_msg(ctx.send(|m| m.content("Let's jam!")).await);
 
@@ -75,7 +75,18 @@ pub async fn play(
 
     build_embeds_on_play(ctx, handler.queue(), source.metadata.as_ref()).await;
 
-    handler.enqueue_source(source);
+    let track_handle = handler.enqueue_source(source);
+
+    let http = ctx.serenity_context().http.clone();
+
+    let _ = track_handle.add_event(
+        Event::Track(TrackEvent::End),
+        utils::TrackEndNotifier {
+            http,
+            channel_id: ctx.channel_id(),
+            handle_lock: handle_mutex.clone(),
+        },
+    );
 
     Ok(())
 }

@@ -86,7 +86,10 @@ impl<'a> SongEmbedBuilder for CreateMessage<'a> {
     }
 
     fn build_embed_empty_queue(&mut self) -> &mut Self {
-        self.embed(|e| e.color(0xED4245).title("There are no songs in the queue"))
+        self.embed(|e| {
+            e.color(0xED4245)
+                .description("There are no songs in the queue")
+        })
     }
 }
 
@@ -108,7 +111,15 @@ fn embed_queued_up(
                 format_duration(metadata.duration.unwrap()),
                 false,
             ),
-            ("Position in queue", position_in_queue.to_string(), false),
+            (
+                "Position in queue",
+                if position_in_queue == 1 {
+                    "Next".to_string()
+                } else {
+                    position_in_queue.to_string()
+                },
+                false,
+            ),
             (
                 "Estimated time until song is played",
                 format_duration(Duration::from_secs(seconds_until)),
@@ -126,10 +137,13 @@ fn currently_playing(
     seconds_elapsed: Duration,
 ) -> &mut CreateEmbed {
     e.color(0xA877C8)
-        .description(bold(hyperlink(
-            metadata.title.unwrap(),
-            metadata.source_url.unwrap(),
-        )))
+        .description(format!(
+            "Now playing: {}",
+            bold(hyperlink(
+                metadata.title.unwrap(),
+                metadata.source_url.unwrap(),
+            ))
+        ))
         .fields(vec![(
             "Time remaining",
             format_duration(metadata.duration.unwrap().sub(seconds_elapsed)),

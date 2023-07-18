@@ -19,7 +19,8 @@ async fn main() {
                 commands::music::current(),
                 commands::music::play(),
                 commands::music::leave(),
-                commands::music::join()
+                commands::music::join(),
+                commands::music::skip(),
             ],
             pre_command: |ctx| {
                 Box::pin(async move {

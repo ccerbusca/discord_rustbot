@@ -1,8 +1,9 @@
 use std::time::Duration;
 
-use poise::serenity_prelude::ChannelId;
+use poise::serenity_prelude::{CacheHttp, ChannelId};
 use songbird::input::restartable::Restartable;
 use songbird::input::Input;
+use songbird::tracks::TrackQueue;
 use songbird::{Event, TrackEvent};
 
 use crate::utils::SongEmbedBuilder;
@@ -47,51 +48,32 @@ pub async fn play(
     ctx: Context<'_>,
     #[description = "YouTube Song name/URL"] song_url: String,
 ) -> Result<(), Error> {
-    validate_voice_channel(&ctx).await;
-
-    let url = url::Url::parse(&song_url).expect("Invalid URL");
+    let connect_to = validate_voice_channel(&ctx)
+        .await
+        .expect("User not in a channel");
     let guild_id = ctx.guild_id().expect("Could not extract guild id");
     let manager = songbird::get(ctx.serenity_context())
         .await
         .expect("Songbird was not registered with the client builder")
         .clone();
 
-    if let Some(handler_lock) = manager.get(guild_id) {
-        let _ = ctx.defer().await;
-
-        let mut handler = handler_lock.lock().await;
-
-        let lazy_source = match Restartable::ytdl(url.to_string(), true).await {
-            Ok(source) => source,
-            Err(why) => {
-                println!("Err starting source: {:?}", why);
-                utils::check_msg(ctx.send(|m| m.content("Error sourcing ffmpeg")).await);
-                return Ok(());
-            }
-        };
-
-        let source: Input = lazy_source.into();
-
-        utils::check_msg(
-            ctx.send(|m| m.build_embed_queued_up(source.metadata.as_ref().clone(), 1, 0))
-                .await,
-        );
-        if handler.queue().is_empty() {
-            utils::check_msg(
-                ctx.send(|m| {
-                    m.reply(false).build_embed_currently_playing(
-                        source.metadata.as_ref().clone(),
-                        Duration::from_secs(0),
-                    )
-                })
-                .await,
-            )
+    let handle_mutex = match manager.get(guild_id) {
+        Some(handle) => handle,
+        None => {
+            let (handle, _) = manager.join(guild_id, connect_to).await;
+            handle
         }
+    };
 
-        handler.enqueue_source(source);
-    } else {
-        utils::check_msg(ctx.send(|m| m.content("I'm not in a voice channel")).await);
-    }
+    let mut handler = handle_mutex.lock().await;
+
+    let source = build_lazy_source(ctx, song_url)
+        .await
+        .expect("Failed to build source");
+
+    build_embeds_on_play(ctx, handler.queue(), source.metadata.as_ref()).await;
+
+    handler.enqueue_source(source);
 
     Ok(())
 }
@@ -187,4 +169,58 @@ async fn validate_voice_channel(ctx: &Context<'_>) -> Option<ChannelId> {
     }
 
     channel_id
+}
+
+async fn build_lazy_source(
+    ctx: Context<'_>,
+    song_url: String,
+) -> songbird::input::error::Result<Input> {
+    let url = url::Url::parse(&song_url);
+    let lazy_source = match url {
+        Ok(_) => Restartable::ytdl(song_url, true).await,
+        Err(_) => Restartable::ytdl_search(song_url, true).await,
+    };
+
+    if lazy_source.is_err() {
+        println!(
+            "Err starting source: {:?}",
+            lazy_source.as_ref().unwrap_err()
+        );
+        utils::check_msg(ctx.send(|m| m.content("Error sourcing ffmpeg")).await);
+    }
+
+    lazy_source.map(|source| source.into())
+}
+
+async fn build_embeds_on_play(
+    ctx: Context<'_>,
+    queue: &TrackQueue,
+    metadata: &songbird::input::Metadata,
+) {
+    let _ = ctx.defer().await;
+
+    let position_in_queue: u64 = (queue.len() + 1) as u64;
+    let elapsed = match queue.current() {
+        Some(track) => track.get_info().await.unwrap().play_time.as_secs(),
+        None => 0,
+    };
+    let seconds_until = queue
+        .current_queue()
+        .iter()
+        .fold(0, |acc, e| acc + e.metadata().duration.unwrap().as_secs())
+        - elapsed;
+
+    utils::check_msg(
+        ctx.send(|m| m.build_embed_queued_up(metadata.clone(), position_in_queue, seconds_until))
+            .await,
+    );
+    if queue.is_empty() {
+        utils::check_msg(
+            ctx.channel_id()
+                .send_message(ctx.http(), |m| {
+                    m.build_embed_currently_playing(metadata.clone(), Duration::from_secs(0))
+                })
+                .await,
+        )
+    }
 }

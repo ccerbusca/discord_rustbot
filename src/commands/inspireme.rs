@@ -1,6 +1,8 @@
 use poise::futures_util::TryFutureExt;
+
 use crate::{Context, Error};
 
+/// Generates an inspirational quote
 #[poise::command(slash_command)]
 pub async fn inspireme(ctx: Context<'_>) -> Result<(), Error> {
     let body = reqwest::get("https://inspirobot.me/api?generate=true")
@@ -12,19 +14,12 @@ pub async fn inspireme(ctx: Context<'_>) -> Result<(), Error> {
         });
 
     match body {
-        Ok(url) =>
-            ctx.send(|m| {
-                m.embed(|e| {
-                    e.color(0xA877C8)
-                        .image(url)
-                })
-            }).await,
-        Err(e) =>
-            ctx.send(|m| {
-                m.content(e)
-            }).await
+        Ok(url) => {
+            ctx.send(|m| m.embed(|e| e.color(0xA877C8).image(url)))
+                .await
+        }
+        Err(e) => ctx.send(|m| m.content(e)).await,
     }?;
-
 
     Ok(())
 }

@@ -1,9 +1,9 @@
-mod commands;
-mod utils;
-
 use dotenv::dotenv;
 use poise::serenity_prelude as serenity;
 use songbird::SerenityInit;
+
+mod commands;
+mod utils;
 
 pub struct Data {} // User data, which is stored and accessible in all command invocations
 type Error = Box<dyn std::error::Error + Send + Sync>;
@@ -14,7 +14,13 @@ async fn main() {
     dotenv().ok();
     let framework = poise::Framework::builder()
         .options(poise::FrameworkOptions {
-            commands: vec![commands::inspireme::inspireme()],
+            commands: vec![
+                commands::inspireme::inspireme(),
+                commands::music::current(),
+                commands::music::play(),
+                commands::music::leave(),
+                commands::music::join()
+            ],
             pre_command: |ctx| {
                 Box::pin(async move {
                     println!("Executing command: '{}'", ctx.command().qualified_name);
@@ -29,12 +35,7 @@ async fn main() {
             Box::pin(async move {
                 poise::builtins::register_globally(ctx, &framework.options().commands).await?;
 
-                let manager = songbird::get(ctx.serenity_context())
-                    .await
-                    .expect("Songbird was not registered with the client builder")
-                    .clone();
-
-                manager.Ok(Data {})
+                Ok(Data {})
             })
         });
 

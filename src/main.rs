@@ -21,6 +21,7 @@ async fn main() {
                 commands::music::leave(),
                 commands::music::join(),
                 commands::music::skip(),
+                commands::music::queue(),
             ],
             pre_command: |ctx| {
                 Box::pin(async move {

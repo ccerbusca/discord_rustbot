@@ -109,12 +109,41 @@ pub async fn current(ctx: Context<'_>) -> Result<(), Error> {
     if let Some(track_handle) = handler.queue().current() {
         let elapsed = track_handle.get_info().await.unwrap().play_time;
         utils::check_msg(
-            ctx.send(|m| m.build_embed_currently_playing(track_handle.metadata().clone(), elapsed))
-                .await,
+            ctx.send(|m| {
+                m.embed(|e| {
+                    e.build_embed_currently_playing(track_handle.metadata().clone(), elapsed)
+                })
+            })
+            .await,
         )
     } else {
-        utils::check_msg(ctx.send(|m| m.build_embed_empty_queue()).await)
+        utils::check_msg(ctx.send(|m| m.embed(|e| e.build_embed_empty_queue())).await)
     }
+    Ok(())
+}
+
+/// Displays a list of all tracks in the queue
+#[poise::command(slash_command)]
+pub async fn queue(ctx: Context<'_>) -> Result<(), Error> {
+    validate_voice_channel(&ctx).await;
+
+    let guild_id = ctx.guild_id().expect("Could not extract guild id");
+    let manager = songbird::get(ctx.serenity_context())
+        .await
+        .expect("Songbird was not registered with the client builder")
+        .clone();
+
+    let handle = manager.get(guild_id).expect("Not in a voice channel");
+
+    let handler = handle.lock().await;
+
+    let tracks = handler.queue().current_queue();
+
+    utils::check_msg(
+        ctx.send(|m| m.embed(|e| e.build_current_queue_embed(tracks)))
+            .await,
+    );
+
     Ok(())
 }
 
@@ -225,14 +254,18 @@ async fn build_embeds_on_play(
         - elapsed;
 
     utils::check_msg(
-        ctx.send(|m| m.build_embed_queued_up(metadata.clone(), position_in_queue, seconds_until))
-            .await,
+        ctx.send(|m| {
+            m.embed(|e| e.build_embed_queued_up(metadata.clone(), position_in_queue, seconds_until))
+        })
+        .await,
     );
     if queue.is_empty() {
         utils::check_msg(
             ctx.channel_id()
                 .send_message(ctx.http(), |m| {
-                    m.build_embed_currently_playing(metadata.clone(), Duration::from_secs(0))
+                    m.embed(|e| {
+                        e.build_embed_currently_playing(metadata.clone(), Duration::from_secs(0))
+                    })
                 })
                 .await,
         )

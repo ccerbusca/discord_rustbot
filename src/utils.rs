@@ -3,7 +3,9 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use poise::async_trait;
-use poise::serenity_prelude::{ChannelId, CreateEmbed, CreateMessage, Error, Http};
+use poise::serenity_prelude::{ChannelId, CreateEmbed, Error, Http};
+use songbird::input::Metadata;
+use songbird::tracks::TrackHandle;
 use songbird::{Call, Event, EventContext, EventHandler as VoiceEventHandler};
 use tokio::sync::Mutex;
 
@@ -42,116 +44,96 @@ pub trait SongEmbedBuilder {
     ) -> &mut Self;
 
     fn build_embed_empty_queue(&mut self) -> &mut Self;
+
+    fn build_current_queue_embed(&mut self, tracks: Vec<TrackHandle>) -> &mut Self;
 }
 
-impl<'a> SongEmbedBuilder for poise::CreateReply<'a> {
+impl<'a> SongEmbedBuilder for CreateEmbed {
     fn build_embed_queued_up(
         &mut self,
-        metadata: songbird::input::Metadata,
+        metadata: Metadata,
         position_in_queue: u64,
         seconds_until: u64,
     ) -> &mut Self {
-        self.embed(|e| embed_queued_up(e, metadata, position_in_queue, seconds_until))
-    }
-
-    fn build_embed_currently_playing(
-        &mut self,
-        metadata: songbird::input::Metadata,
-        seconds_elapsed: Duration,
-    ) -> &mut Self {
-        self.embed(|e| currently_playing(e, metadata, seconds_elapsed))
-    }
-
-    fn build_embed_empty_queue(&mut self) -> &mut Self {
-        self.embed(|e| e.color(0xED4245).title("There are no songs in the queue"))
-    }
-}
-
-impl<'a> SongEmbedBuilder for CreateMessage<'a> {
-    fn build_embed_queued_up(
-        &mut self,
-        metadata: songbird::input::Metadata,
-        position_in_queue: u64,
-        seconds_until: u64,
-    ) -> &mut Self {
-        self.embed(|e| embed_queued_up(e, metadata, position_in_queue, seconds_until))
-    }
-
-    fn build_embed_currently_playing(
-        &mut self,
-        metadata: songbird::input::Metadata,
-        seconds_elapsed: Duration,
-    ) -> &mut Self {
-        self.embed(|e| currently_playing(e, metadata, seconds_elapsed))
-    }
-
-    fn build_embed_empty_queue(&mut self) -> &mut Self {
-        self.embed(|e| {
-            e.color(0xED4245)
-                .description("There are no songs in the queue")
-        })
-    }
-}
-
-fn embed_queued_up(
-    e: &mut CreateEmbed,
-    metadata: songbird::input::Metadata,
-    position_in_queue: u64,
-    seconds_until: u64,
-) -> &mut CreateEmbed {
-    e.color(0xA877C8)
-        .title("New song queued up")
-        .description(bold(hyperlink(
-            metadata.title.unwrap(),
-            metadata.source_url.unwrap(),
-        )))
-        .fields(vec![
-            (
-                "Duration",
-                format_duration(metadata.duration.unwrap()),
-                false,
-            ),
-            (
-                "Position in queue",
-                if position_in_queue == 1 {
-                    "Next".to_string()
-                } else {
-                    position_in_queue.to_string()
-                },
-                false,
-            ),
-            (
-                "Estimated time until song is played",
-                format_duration(Duration::from_secs(seconds_until)),
-                false,
-            ),
-        ])
-        .thumbnail(metadata.thumbnail.unwrap_or(
-            "https://images.pexels.com/photos/11733110/pexels-photo-11733110.jpeg".to_string(),
-        ))
-}
-
-fn currently_playing(
-    e: &mut CreateEmbed,
-    metadata: songbird::input::Metadata,
-    seconds_elapsed: Duration,
-) -> &mut CreateEmbed {
-    e.color(0xA877C8)
-        .description(format!(
-            "Now playing: {}",
-            bold(hyperlink(
+        self.color(0xA877C8)
+            .title("New song queued up")
+            .description(bold(hyperlink(
                 metadata.title.unwrap(),
                 metadata.source_url.unwrap(),
+            )))
+            .fields(vec![
+                (
+                    "Duration",
+                    format_duration(metadata.duration.unwrap()),
+                    false,
+                ),
+                (
+                    "Position in queue",
+                    if position_in_queue == 1 {
+                        "Next".to_string()
+                    } else {
+                        position_in_queue.to_string()
+                    },
+                    false,
+                ),
+                (
+                    "Estimated time until song is played",
+                    format_duration(Duration::from_secs(seconds_until)),
+                    false,
+                ),
+            ])
+            .thumbnail(metadata.thumbnail.unwrap_or(
+                "https://images.pexels.com/photos/11733110/pexels-photo-11733110.jpeg".to_string(),
             ))
-        ))
-        .fields(vec![(
-            "Time remaining",
-            format_duration(metadata.duration.unwrap().sub(seconds_elapsed)),
-            false,
-        )])
-        .thumbnail(metadata.thumbnail.unwrap_or(
-            "https://images.pexels.com/photos/11733110/pexels-photo-11733110.jpeg".to_string(),
-        ))
+    }
+
+    fn build_embed_currently_playing(
+        &mut self,
+        metadata: Metadata,
+        seconds_elapsed: Duration,
+    ) -> &mut Self {
+        self.color(0xA877C8)
+            .description(format!(
+                "Now playing: {}",
+                bold(hyperlink(
+                    metadata.title.unwrap(),
+                    metadata.source_url.unwrap(),
+                ))
+            ))
+            .fields(vec![(
+                "Time remaining",
+                format_duration(metadata.duration.unwrap().sub(seconds_elapsed)),
+                false,
+            )])
+            .thumbnail(metadata.thumbnail.unwrap_or(
+                "https://images.pexels.com/photos/11733110/pexels-photo-11733110.jpeg".to_string(),
+            ))
+    }
+
+    fn build_embed_empty_queue(&mut self) -> &mut Self {
+        self.color(0xED4245)
+            .description("There are no songs in the queue")
+    }
+
+    fn build_current_queue_embed(&mut self, tracks: Vec<TrackHandle>) -> &mut Self {
+        self.color(0xA877C8).title("Songs queued up").description(
+            tracks
+                .iter()
+                .enumerate()
+                .map(|(i, track)| {
+                    let metadata = track.metadata().clone();
+                    format!(
+                        "{}. {}\n",
+                        i + 1,
+                        bold(hyperlink(
+                            metadata.title.unwrap(),
+                            metadata.source_url.unwrap()
+                        ))
+                    )
+                })
+                .collect::<String>(),
+        )
+    }
 }
 
 pub struct TrackEndNotifier {
@@ -170,14 +152,16 @@ impl VoiceEventHandler for TrackEndNotifier {
                 check_msg(
                     self.channel_id
                         .send_message(&self.http, |m| {
-                            m.build_embed_currently_playing(np.metadata().clone(), elapsed)
+                            m.embed(|e| {
+                                e.build_embed_currently_playing(np.metadata().clone(), elapsed)
+                            })
                         })
                         .await,
                 );
             } else {
                 check_msg(
                     self.channel_id
-                        .send_message(&self.http, |m| m.build_embed_empty_queue())
+                        .send_message(&self.http, |m| m.embed(|e| e.build_embed_empty_queue()))
                         .await,
                 );
             }

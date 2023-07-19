@@ -32,14 +32,14 @@ pub fn format_duration(d: Duration) -> String {
 pub trait SongEmbedBuilder {
     fn build_embed_queued_up(
         &mut self,
-        metadata: songbird::input::Metadata,
+        metadata: Metadata,
         position_in_queue: u64,
         seconds_until: u64,
     ) -> &mut Self;
 
     fn build_embed_currently_playing(
         &mut self,
-        metadata: songbird::input::Metadata,
+        metadata: Metadata,
         seconds_elapsed: Duration,
     ) -> &mut Self;
 
@@ -48,7 +48,7 @@ pub trait SongEmbedBuilder {
     fn build_current_queue_embed(&mut self, tracks: Vec<TrackHandle>) -> &mut Self;
 }
 
-impl<'a> SongEmbedBuilder for CreateEmbed {
+impl SongEmbedBuilder for CreateEmbed {
     fn build_embed_queued_up(
         &mut self,
         metadata: Metadata,

@@ -16,13 +16,13 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - name: Build
-      run: cargo build --verbose --release --target x86_64-unknown-linux-gnu
+      run: cargo build --verbose --target x86_64-unknown-linux-gnu
     - name: Run tests
       run: cargo test --verbose
     - name: Copy single file to remote
       uses: garygrossgarten/github-action-scp@v0.8.0
       with:
-        local: target/offline_rustbot
+        local: target/x86_64-unknown-linux-gnu/release/offline_rustbot
         remote: bot/offline_rustbot
         host: ${{ secrets.HOST }}
         username: ${{ secrets.SSH_USER }}

@@ -163,6 +163,8 @@ pub async fn skip(ctx: Context<'_>) -> Result<(), Error> {
     let handler = handle.lock().await;
 
     let _ = handler.queue().skip();
+
+    utils::check_msg(ctx.send(|m| m.content("Skipped current song")).await);
     Ok(())
 }
 

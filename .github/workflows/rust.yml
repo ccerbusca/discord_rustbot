@@ -30,4 +30,6 @@ jobs:
 #         username: ${{ secrets.SSH_USER }}
 #         password: ${{ secrets.PASSWORD }}
     - name: test
-      run: ls
+      run:
+        ls target
+        ls target/x86_64-unknown-linux-gnu

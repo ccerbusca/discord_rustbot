@@ -19,17 +19,17 @@ jobs:
     - uses: actions/checkout@v3
     - name: Build
       run: cargo build --verbose --target x86_64-unknown-linux-gnu
-#     - name: Run tests
-#       run: cargo test --verbose
-#     - name: Copy single file to remote
-#       uses: garygrossgarten/github-action-scp@v0.8.0
-#       with:
-#         local: target/x86_64-unknown-linux-gnu/release/offline_rustbot
-#         remote: bot/offline_rustbot
-#         host: ${{ secrets.HOST }}
-#         username: ${{ secrets.SSH_USER }}
-#         password: ${{ secrets.PASSWORD }}
+    - name: Run tests
+      run: cargo test --verbose
     - name: test
       run: |
         ls target
         ls target/x86_64-unknown-linux-gnu
+    - name: Copy single file to remote
+      uses: garygrossgarten/github-action-scp@v0.8.0
+      with:
+        local: target/x86_64-unknown-linux-gnu/debug/offline_rustbot
+        remote: bot/offline_rustbot
+        host: ${{ secrets.HOST }}
+        username: ${{ secrets.SSH_USER }}
+        password: ${{ secrets.PASSWORD }}

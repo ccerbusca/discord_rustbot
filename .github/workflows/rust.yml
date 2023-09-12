@@ -22,7 +22,7 @@ jobs:
 #    - name: Run tests
 #      run: cargo test --verbose
     - name: Build
-      run: docker run -v "$(pwd):/source" rust:slim-bullseye sh -c "cargo build --release --target=x86_64-unknown-linux-gnu && chown -R $(id -u):$(id -g) ."
+      run: docker run -v "$(pwd):/" rust:slim-bullseye sh -c "cargo build --release --target=x86_64-unknown-linux-gnu"
     - name: Copy single file to remote
       uses: garygrossgarten/github-action-scp@v0.8.0
       with:

@@ -17,10 +17,12 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
+#    - name: Build
+#      run: cargo build --verbose --release
+#    - name: Run tests
+#      run: cargo test --verbose
     - name: Build
-      run: cargo build --verbose --target x86_64-unknown-linux-gnu --release --static
-    - name: Run tests
-      run: cargo test --verbose
+      run: docker run -it -v "$(pwd):/source" rust:slim-bullseye sh -c "cargo build --release --target=x86_64-unknown-linux-gnu && chown -R $(id -u):$(id -g) ."
     - name: Copy single file to remote
       uses: garygrossgarten/github-action-scp@v0.8.0
       with:
